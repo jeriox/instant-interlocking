@@ -333,6 +333,8 @@ fn main() -> anyhow::Result<()> {
         .spawn()?
         .wait()?;
 
+    remove_from_parent_workspace(&output_path)?;
+
     let mut manifest_path = output_path.clone();
     manifest_path.push("Cargo.toml");
 
@@ -396,6 +398,41 @@ fn main() -> anyhow::Result<()> {
     // Tests
     let mut fp = std::fs::File::create(src_dir.with_file_name("test.rs"))?;
     fp.write_all(generated_tests.as_bytes())?;
+
+    Ok(())
+}
+
+fn remove_from_parent_workspace(output_path: &std::path::Path) -> anyhow::Result<()> {
+    let parent_manifest = match output_path.parent() {
+        Some(parent) => parent.join("Cargo.toml"),
+        None => return Ok(()),
+    };
+
+    if !parent_manifest.exists() {
+        return Ok(());
+    }
+
+    let member = match output_path.file_name().and_then(|n| n.to_str()) {
+        Some(name) => name,
+        None => return Ok(()),
+    };
+
+    let contents = std::fs::read_to_string(&parent_manifest)?;
+
+    let needle_bare = format!("\"{member}\"");
+    if !contents.contains(&needle_bare) {
+        return Ok(());
+    }
+
+    let cleaned = contents
+        .replace(&format!("\"{member}\", "), "")
+        .replace(&format!(", \"{member}\""), "")
+        .replace(&format!("\"{member}\","), "")
+        .replace(&needle_bare, "");
+
+    if cleaned != contents {
+        std::fs::write(&parent_manifest, cleaned)?;
+    }
 
     Ok(())
 }

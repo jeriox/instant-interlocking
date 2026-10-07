@@ -86,6 +86,8 @@ impl ControlStation {
                 "/terminate",
                 get(|| async {
                     std::process::exit(0);
+                    #[allow(unreachable_code)]
+                    ()
                 }),
             )
             .layer(CorsLayer::permissive())
